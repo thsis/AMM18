@@ -1,0 +1,140 @@
+---
+title: "SWP1"
+author: "Thomas Siskos"
+date: "April 19, 2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.align = "center", fig.height = 3.5, fig.width = 12)
+```
+
+```{r warning=FALSE}
+library(car)
+library(dplyr)
+library(ggplot2)
+library(GGally)
+data("Salaries")
+```
+
+# 1:
+
+Observations: 397 - Variables: 6
+
+```{r}
+dim(Salaries)
+```
+
+# 2:
+Nr. of professors with more than 40 yrs of experience: 21
+
+```{r}
+old = Salaries[, "yrs.service"] > 40
+sum(old)
+```
+
+
+# 3:
+Nr. of professors with salary higher than 150000: 54
+
+```{r}
+rich = Salaries[, "salary"] > 150000
+sum(rich)
+```
+
+
+# 4:
+Mean salary of professors with more than 20 yrs of experience: $122103.90
+
+```{r}
+mean(Salaries[Salaries$yrs.service > 20, "salary"])
+```
+
+# 5:
+
+```{r}
+summary(Salaries)
+```
+
+# 6:
+```{r}
+counts = Salaries %>%
+  count(sex, rank) %>%
+  mutate(prop = n / sum(n))
+
+print(counts)
+```
+
+# 7:
+```{r}
+ggplot(Salaries, aes(x = yrs.service)) +
+  geom_histogram(aes(y = ..density..), binwidth = 5) +
+  geom_density(color="red") +
+  theme_bw() +
+  ggtitle("Distribution of years of service")
+```
+
+# 8:
+
+```{r fig.width=2, fig.align="right"}
+ggplot(Salaries, aes(x = 1, y = salary)) +
+  geom_boxplot() +
+  theme_bw() +
+  ggtitle("Boxplot salary") +
+  xlab("")
+```
+
+# 9:
+```{r}
+ggplot(Salaries, aes(x = rank, y = salary, group = rank)) +
+  geom_boxplot() +
+  coord_flip() +
+  theme_bw() +
+  ggtitle("Boxplot salaries by rank")
+```
+
+# 10:
+```{r}
+ggplot(Salaries, aes(x = yrs.since.phd, y = salary)) +
+  geom_point() +
+  theme_bw() +
+  ggtitle("Salary vs. years since Phd")
+```
+
+# 11:
+Correlation between salary and years since phd: 0.41
+```{r}
+cor(Salaries$salary, Salaries$yrs.since.phd)
+cor(Salaries$salary, Salaries$yrs.service)
+model = lm("salary ~ yrs.since.phd", data = Salaries)
+summary(model)
+```
+
+# 12:
+```{r fig.height=7}
+ggpairs(Salaries) +
+  theme_bw()
+```
+
+# 13:
+```{r}
+Salaries %>%
+  group_by(rank, sex) %>%
+  summarise(mean.salary = mean(salary))
+```
+
+# 14:
+```{r}
+ggplot(Salaries, aes(x = sex, y = salary, group = sex)) +
+  geom_boxplot() +
+  theme_bw() +
+  coord_flip() +
+  ggtitle("Distribution of salaries conditioned on sex")
+```
+
+# 15:
+```{r}
+cont = table(Salaries$sex, Salaries$discipline)
+chisq.test(cont)
+```
