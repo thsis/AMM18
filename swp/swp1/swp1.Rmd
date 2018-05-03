@@ -1,8 +1,9 @@
 ---
-title: "SWP1"
-author: "Thomas Siskos"
-date: "April 19, 2018"
+title: "SWP1 - Group 6"
+author: "Thomas Siskos, Julian Cantor, Oliver Brose, Konstantin Haesler"
+date: "May 3, 2018"
 output: pdf_document
+geometry: margin=2.54cm 
 ---
 
 ```{r setup, include=FALSE}
