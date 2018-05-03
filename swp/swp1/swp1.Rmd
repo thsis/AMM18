@@ -2,13 +2,16 @@
 title: "SWP1 - Group 6"
 author: "Thomas Siskos, Julian Cantor, Oliver Brose, Konstantin Haesler"
 date: "May 3, 2018"
-output: pdf_document
-geometry: margin=2.54cm 
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+geometry: margin=2.54cm
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
-                      fig.align = "center", fig.height = 3.5, fig.width = 12)
+                      fig.align = "center", fig.height = 3, fig.width = 10)
 ```
 
 ```{r warning=FALSE}
@@ -16,58 +19,45 @@ library(car)
 library(dplyr)
 library(ggplot2)
 library(GGally)
+library(stargazer)
 data("Salaries")
 ```
 
-# 1:
 
-Observations: 397 - Variables: 6
+### Questions 1, 2, 3 & 4
+There are 397 observation and 6 variables in the dataset, 21 professors with more than 40 yrs of experience and 54 professors with a salary higher than 150,000. On the other hand, the mean salary of the professors with more than 20 yrs of experience is $122,104.
 
-```{r}
+```{r, eval = FALSE, echo = FALSE}
+# Q1
 dim(Salaries)
-```
-
-# 2:
-Nr. of professors with more than 40 yrs of experience: 21
-
-```{r}
+# Q2
 old = Salaries[, "yrs.service"] > 40
 sum(old)
-```
-
-
-# 3:
-Nr. of professors with salary higher than 150000: 54
-
-```{r}
+# Q3
 rich = Salaries[, "salary"] > 150000
 sum(rich)
-```
-
-
-# 4:
-Mean salary of professors with more than 20 yrs of experience: $122103.90
-
-```{r}
+# Q4
 mean(Salaries[Salaries$yrs.service > 20, "salary"])
 ```
 
-# 5:
+### Question 5: 
+To find out more of the dataset we computed some descriptive statistics.
 
-```{r}
+```{r, echo = TRUE}
 summary(Salaries)
 ```
 
-# 6:
-```{r}
+### Question 6: 
+The following chart shows the counts and proportions by rank and sex.  
+```{r, echo = T}
 counts = Salaries %>%
   count(sex, rank) %>%
   mutate(prop = n / sum(n))
-
 print(counts)
 ```
 
-# 7:
+### Question 7: 
+The histogram below shows the desired output. 
 ```{r}
 ggplot(Salaries, aes(x = yrs.service)) +
   geom_histogram(aes(y = ..density..), binwidth = 5) +
@@ -76,7 +66,8 @@ ggplot(Salaries, aes(x = yrs.service)) +
   ggtitle("Distribution of years of service")
 ```
 
-# 8:
+### Question 8: 
+The bloxplot below shows the desired output. 
 
 ```{r fig.width=2, fig.align="right"}
 ggplot(Salaries, aes(x = 1, y = salary)) +
@@ -86,7 +77,8 @@ ggplot(Salaries, aes(x = 1, y = salary)) +
   xlab("")
 ```
 
-# 9:
+### Question 9: 
+The bloxplot below shows the desired output.
 ```{r}
 ggplot(Salaries, aes(x = rank, y = salary, group = rank)) +
   geom_boxplot() +
@@ -95,7 +87,8 @@ ggplot(Salaries, aes(x = rank, y = salary, group = rank)) +
   ggtitle("Boxplot salaries by rank")
 ```
 
-# 10:
+### Question 10: 
+The scatterplot shows the desired result. 
 ```{r}
 ggplot(Salaries, aes(x = yrs.since.phd, y = salary)) +
   geom_point() +
@@ -103,29 +96,33 @@ ggplot(Salaries, aes(x = yrs.since.phd, y = salary)) +
   ggtitle("Salary vs. years since Phd")
 ```
 
-# 11:
-Correlation between salary and years since phd: 0.41
-```{r}
+### Question 11: 
+The correlation between salary and years since phd is 0.41: With the model output shown below one can see that the p-value is less than 0.05 and thus the correlation has statistical significance.
+```{r, echo = T, results="asis"}
 cor(Salaries$salary, Salaries$yrs.since.phd)
 cor(Salaries$salary, Salaries$yrs.service)
 model = lm("salary ~ yrs.since.phd", data = Salaries)
-summary(model)
+print(summary(model))
 ```
 
-# 12:
+### Question 12: 
+The following diagram shows all bivariate relationships.
 ```{r fig.height=7}
 ggpairs(Salaries) +
   theme_bw()
 ```
 
-# 13:
+### Question 13: 
+The next table shows mean salaries by rank and sex. 
 ```{r}
-Salaries %>%
+s <- Salaries %>%
   group_by(rank, sex) %>%
-  summarise(mean.salary = mean(salary))
+  summarise(mean.salary = mean(salary)) 
+
+print(xtabs(mean.salary~., data=s))
 ```
 
-# 14:
+### Question 14: 
 ```{r}
 ggplot(Salaries, aes(x = sex, y = salary, group = sex)) +
   geom_boxplot() +
@@ -134,8 +131,10 @@ ggplot(Salaries, aes(x = sex, y = salary, group = sex)) +
   ggtitle("Distribution of salaries conditioned on sex")
 ```
 
-# 15:
+### Question 15: 
+We used a Chi-square test because it is appropiate for testing differences in proportions. We can not reject the null hipotesis of the Chi-square test since the p-value of the test is larger than 0.05. This means than we can not conclude that there is a difference between the proportions of women in each discipline. 
 ```{r}
 cont = table(Salaries$sex, Salaries$discipline)
+print(cont)
 chisq.test(cont)
 ```
