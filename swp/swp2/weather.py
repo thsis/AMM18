@@ -58,11 +58,15 @@ def switch_key():
         yield key
 
 
+# Define location.
 BOSTON = (42.3601, 71.0589)
+
+# Set up dataframe and path to which it will be saved.
 feature_columns = ["day", "tempMin", "tempMax", "summary", 'desc']
 weather_boston = pd.DataFrame(columns=feature_columns)
 dataout = os.path.join("data", "weather_boston_daily.csv")
 
+# Define start variables for the loop.
 start = datetime(2001, 4, 2, 12)
 keygen = switch_key()
 key = next(keygen)
@@ -71,14 +75,17 @@ for day in tqdm(pd.date_range(start, periods=4004)):
     try:
         row = ping_darksky(key=key, time=day)
         weather_boston = weather_boston.append(row, ignore_index=True)
+    # If the server refuses to connect, change the key.
     except requests.exceptions.HTTPError:
         key = next(keygen)
         row = ping_darksky(key=key, time=day)
         weather_boston = weather_boston.append(row, ignore_index=True)
         continue
+    # If there are no keys left, break the loop prematurely.
     except StopIteration:
         warnings.warn("End of keys reached. Your dataset might be incomplete.")
         break
+    # Save data in each iteration. This way you should end up with something.
     finally:
         weather_boston.to_csv(dataout)
 
