@@ -2,7 +2,8 @@
 ### What does this script?
 
 This script scrapes the web for weather data, interfacing with the Dark Sky API
-in order to obtain data about temperature and weather conditions measured at Boston Logan International Airport. At the end you will write a `csv-file` to
+in order to obtain data about temperature and weather conditions measured at
+Boston Logan International Airport. At the end you will write a `csv-file` to
 the `data` directory of this repository (on your local disk, of course).
 """
 
@@ -10,7 +11,7 @@ import os
 import warnings
 import requests
 import pandas as pd
-# from darksky import forecast
+from darksky import forecast
 from datetime import datetime
 from tqdm import tqdm
 
