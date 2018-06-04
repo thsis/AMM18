@@ -8,7 +8,14 @@ library(lubridate)
 data.cola <- read.csv("cola_amm_boston.csv")
 
 # Week_coding 
-data.cola <- data.cola %>% mutate(weeknum = factor((week %% 52)+1))
+week.coding <- read.csv("IRI week translation_2008_2017.csv", 
+                        stringsAsFactors = F)
+week.coding[ , 4:6] <- NULL 
+colnames(week.coding) <- c("IRI.Week","Start","End")
+
+week.coding$Start <- as.Date(mdy(week.coding$Start), format = "%U %Y")
+week.coding$End   <- mdy(week.coding$End)
+
 
 # Subset meaningful chains
 data.cola <- cola %>% filter(CHAIN %in% c(33,65))
@@ -32,3 +39,6 @@ bottle_units = bottle %>%
 can_units = can %>%
   group_by(week, L5) %>%
   summarize(units = sum(units))
+
+difftime(strptime("03.09.1979", format = "%d.%m.%Y"),
+         strptime("31.12.2007", format = "%d.%m.%Y"),units="weeks")
