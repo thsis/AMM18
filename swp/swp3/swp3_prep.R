@@ -136,10 +136,17 @@ extract_elasticities = function(eldf){
   res[1, 3] <- res[3, 1] <- as.double(eldf[1, 5])
   res[1, 4] <- res[4, 1] <- as.double(eldf[1, 4])
   res[2, 3] <- res[3, 2] <- as.double(eldf[2, 6])
-  res[4, 2] <- res[2, 4] <- as.double(eldf[4, 2])
-  res[4, 3] <- res[3, 4] <- as.double(eldf[4, 3])
-  return(res)
+  res[4, 2] <- res[2, 4] <- as.double(eldf[4, 3])
+  res[4, 3] <- res[3, 4] <- as.double(eldf[4, 6])
+  
+  res[upper.tri(res)] <- NA
+  
+  colnames(res) <- rownames(res) <- eldf$L5
+  
+  return(round(res,2))
 }
 
 extract_elasticities(elasticities.bottle)
 extract_elasticities(elasticities.can)
+
+
