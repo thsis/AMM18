@@ -71,8 +71,8 @@ cola = merge(cola, cola.share_cola)
 
 # Construct model formulas
 formulas = c("carbbev", "cola")
-formulas = paste0("log(share_", formulas, ")-log(outside_", formulas,
-                  ") ~ price + lagged_price + lagged_units + feature + display + christmas + superbowl + july4th + thanksgiving")
+model_vars = "price + lagged_price + lagged_units + feature + display + christmas + superbowl + july4th + thanksgiving"
+formulas = paste0("log(share_", formulas, ")-log(outside_", formulas, ") ~ ", model_vars)
 
 cola.can = cola %>% filter(PACKAGE == "CAN")
 cola.bottle = cola %>% filter(PACKAGE == "BOTTLE")
@@ -149,4 +149,77 @@ extract_elasticities = function(eldf){
 extract_elasticities(elasticities.bottle)
 extract_elasticities(elasticities.can)
 
+################################################################################
+# 3 b: compute within shares
+# Model: 1st Choice Diet vs Regular, 2nd Choice Coke vs Pepsi
+cola.type = cola %>%
+  mutate(type = ifelse(L5 %in% c("COKE CLASSIC", "PEPSI"), "REGULAR", "DIET")) %>% 
+  group_by(type) %>% 
+  summarise(type_total_units = sum(units),
+            type_total_revenue = sum(dollars))
 
+cola.pkg = cola %>%
+  group_by(PACKAGE) %>% 
+  summarise(pkg_total_units = sum(units),
+            pkg_total_revenue = sum(dollars))
+
+cola.brand = cola %>%
+  mutate(brand = ifelse(L5 %in% c("COKE CLASSIC", "DIET COKE"), "COKE", "PEPSI")) %>% 
+  group_by(brand) %>% 
+  summarise(brand_total_units = sum(units),
+            brand_total_revenue = sum(dollars))
+
+cola = cola %>% 
+  mutate(type = ifelse(L5 %in% c("COKE CLASSIC", "PEPSI"), "REGULAR", "DIET"),
+         brand = ifelse(L5 %in% c("COKE CLASSIC", "DIET COKE"), "COKE", "PEPSI"))
+
+cola = merge(cola, cola.brand)
+cola = merge(cola, cola.pkg)
+cola = merge(cola, cola.type)
+
+cola.can = cola %>% filter(PACKAGE == "CAN") %>% 
+  mutate(w_share_brand_units = units / brand_total_units,
+         w_share_brand_revenue = dollars / brand_total_revenue,
+         w_share_pkg_units = units / pkg_total_units,
+         w_share_pkg_revenue = dollars / pkg_total_revenue,
+         w_share_type_units = units / type_total_units,
+         w_share_type_revenue = units / type_total_revenue)
+
+cola.bottle = cola %>% filter(PACKAGE == "BOTTLE") %>%
+  mutate(w_share_brand_units = units / brand_total_units,
+         w_share_brand_revenue = dollars / brand_total_revenue,
+         w_share_pkg_units = units / pkg_total_units,
+         w_share_pkg_revenue = dollars / pkg_total_revenue,
+         w_share_type_units = units / type_total_units,
+         w_share_type_revenue = units / type_total_revenue)
+
+
+model_vars = "price + feature + display + christmas + superbowl + july4th + thanksgiving"
+formulas = c("brand", "pkg", "type")
+formulas = paste0("log(share_cola) - log(outside_cola) ~ ",
+                  model_vars, " + log(w_share_", formulas, "_units) - 1")
+
+# CANS
+cans_nested_logit_brand = lm(formulas[1], data = cola.can)
+summary(cans_nested_logit_brand)
+
+cans_nested_logit_pkg = lm(formulas[2], data = cola.can)
+summary(cans_nested_logit_pkg)
+
+cans_nested_logit_type = lm(formulas[3], data = cola.can)
+summary(cans_nested_logit_type)
+
+# BOTTLES
+bottles_nested_logit_brand = lm(formulas[1], data = cola.bottle)
+summary(bottles_nested_logit_brand)
+
+bottles_nested_logit_pkg = lm(formulas[2], data = cola.bottle)
+summary(bottles_nested_logit_pkg)
+
+bottles_nested_logit_type = lm(formulas[3], data = cola.bottle)
+summary(bottles_nested_logit_type)
+
+# Bullshit residuals:
+hist(cans_nested_logit_brand$residuals)
+
+# Elasticities
