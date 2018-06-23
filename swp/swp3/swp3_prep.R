@@ -1,6 +1,6 @@
 library("dplyr")
 
-data = read.csv("data/cola_amm_boston.csv")
+data = read.csv("data/cola_amm_boston.csv", stringsAsFactors = FALSE)
 
 # Define filters.
 time_filter = 2010:2011
@@ -22,9 +22,21 @@ cola = data[, !colnames(data) %in% redundant_columns] %>%
   filter(year %in% time_filter & CHAIN == 65) %>%
   mutate(CHAIN = factor(CHAIN),
          year = factor(year),
-         week = factor(week),
-         display = factor(display),
-         christmas = week %in% christmas_filter,
+         week = factor(week)) %>% 
+  group_by(year, week, L5, PACKAGE) %>% 
+  summarise(
+    units = sum(units),
+    dollars = sum(dollars),
+    price = mean(price),
+    feature = mean(ifelse(feature == "NONE", 0, 1)),
+    display = mean(display),
+    total_vol_carbbev = sum(total_vol_carbbev),
+    total_rev_carbbev = sum(total_rev_carbbev),
+    total_vol_cola = sum(total_vol_cola),
+    total_rev_cola = sum(total_rev_cola),
+    total_vol_l4 = sum(total_vol_l4),
+    total_rev_l4 = sum(total_rev_l4)) %>%
+  mutate(christmas = week %in% christmas_filter,
          newyearseve = week %in% newyearseve_filter,
          superbowl = week %in% superbowl_filter,
          july4th = week %in% july4th_filter,
@@ -35,7 +47,7 @@ cola = data[, !colnames(data) %in% redundant_columns] %>%
          outside_carbbev = 1 - share_carbbev,
          outside_cola = 1 - share_cola,
          outside_l4 = 1 - share_l4) %>% 
-  arrange(iri_key, week) %>% 
+  arrange(week) %>% 
   mutate(lagged_units = lag(units),
          lagged_price = lag(price))
 
