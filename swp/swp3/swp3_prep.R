@@ -111,15 +111,6 @@ cola.bottle = cola.bottle %>%
          pepsi_elasticity_cola = -abs(model_bottle_cola$coefficients['price'] * price_pepsi * share_cola_pepsi),
          diet_pepsi_elasticity_cola = -abs(model_bottle_cola$coefficients['price'] * price_diet_pepsi * share_cola_diet_pepsi))
 
-get_elasticity_summary = function(df){
-  for (l5 in unique(df$L5)) {
-    tmp = df %>%
-      filter(L5 != l5) %>% 
-      
-    
-  }
-}
-
 elasticities.can = cola.can %>% 
   select(L5, own_elasticity_cola:diet_pepsi_elasticity_cola) %>% 
   group_by(L5) %>%
@@ -129,7 +120,6 @@ elasticities.can = cola.can %>%
             pepsi_el = median(pepsi_elasticity_cola),
             diet_pepsi_el = median(diet_pepsi_elasticity_cola))
 
-
 elasticities.bottle = cola.bottle %>% 
   select(L5, own_elasticity_cola:diet_pepsi_elasticity_cola) %>% 
   group_by(L5) %>%
@@ -138,4 +128,18 @@ elasticities.bottle = cola.bottle %>%
             coke_el = median(coke_elasticity_cola),
             pepsi_el = median(pepsi_elasticity_cola),
             diet_pepsi_el = median(diet_pepsi_elasticity_cola))
-elasticities.bottle
+
+
+extract_elasticities = function(eldf){
+  res = diag(eldf$own_el)
+  res[1, 2] <- res[2, 1] <- as.double(eldf[1, 3])
+  res[1, 3] <- res[3, 1] <- as.double(eldf[1, 5])
+  res[1, 4] <- res[4, 1] <- as.double(eldf[1, 4])
+  res[2, 3] <- res[3, 2] <- as.double(eldf[2, 6])
+  res[4, 2] <- res[2, 4] <- as.double(eldf[4, 2])
+  res[4, 3] <- res[3, 4] <- as.double(eldf[4, 3])
+  return(res)
+}
+
+extract_elasticities(elasticities.bottle)
+extract_elasticities(elasticities.can)
