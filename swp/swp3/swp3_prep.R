@@ -1,4 +1,5 @@
 library("dplyr")
+library("tidyr")
 
 data = read.csv("data/cola_amm_boston.csv", stringsAsFactors = FALSE)
 
@@ -43,18 +44,35 @@ cola = data[, !colnames(data) %in% redundant_columns] %>%
          thanksgiving = week %in% thanksgiving_filter,
          share_carbbev = dollars / total_rev_carbbev,
          share_cola = dollars / total_rev_cola,
-         share_l4 = dollars / total_rev_l4,
          outside_carbbev = 1 - share_carbbev,
-         outside_cola = 1 - share_cola,
-         outside_l4 = 1 - share_l4) %>% 
+         outside_cola = 1 - share_cola) %>% 
+  group_by(year, L5, PACKAGE) %>% 
   arrange(week) %>% 
   mutate(lagged_units = lag(units),
          lagged_price = lag(price))
 
+get_share = function(var){
+  df = cola %>% 
+    select_("year", "week", "L5", "PACKAGE", var) %>% 
+    spread(L5, var)
+  prods = c("_coke", "_diet_coke", "_diet_pepsi", "_pepsi")
+  columns = c("year", "week", "PACKAGE", paste0(var, prods))
+  colnames(df) = columns
+  return(df)
+}
+
+cola.price = get_share("price")
+cola.share_carbbev = get_share("share_carbbev")
+cola.share_cola = get_share("share_cola")
+
+cola = merge(cola, cola.price)
+cola = merge(cola, cola.share_carbbev)
+cola = merge(cola, cola.share_cola)
+
 # Construct model formulas
-formulas = c("carbbev", "cola", "l4")
+formulas = c("carbbev", "cola")
 formulas = paste0("log(share_", formulas, ")-log(outside_", formulas,
-                  ") ~ price + lagged_price + lagged_units + feature + display + christmas + newyearseve + superbowl + july4th + thanksgiving")
+                  ") ~ price + lagged_price + lagged_units + feature + display + christmas + superbowl + july4th + thanksgiving")
 
 cola.can = cola %>% filter(PACKAGE == "CAN")
 cola.bottle = cola %>% filter(PACKAGE == "BOTTLE")
@@ -69,10 +87,6 @@ model_can_cola = lm(formulas[2], data = cola.can)
 summary(model_can_cola)
 plot(model_can_cola)
 
-model_can_l4 = lm(formulas[3], data = cola.can)
-summary(model_can_l4)
-plot(model_can_l4)
-
 ## BOTTLES
 model_bottle_carbbev = lm(formulas[1], data = cola.bottle)
 summary(model_bottle_carbbev)
@@ -82,17 +96,46 @@ model_bottle_cola = lm(formulas[2], data = cola.bottle)
 summary(model_bottle_cola)
 plot(model_bottle_cola)
 
-model_bottle_l4 = lm(formulas[3], data = cola.bottle)
-summary(model_bottle_l4)
-plot(model_bottle_l4)
-
 # Compute elasticities
 cola.can = cola.can %>%
-  mutate(own_elasticity_carbbev = model_can_carbbev$coefficients['price'] * price * (1-share_carbbev),
-         own_elasticity_cola = model_can_cola$coefficients['price'] * price * (1-share_cola),
-         own_elasticity_l4 = model_can_cola$coefficients['price'] * price * (1-share_l4))
+  mutate(own_elasticity_cola = -abs(model_can_cola$coefficients['price']) * price * (1-share_cola),
+         coke_elasticity_cola = -abs(model_can_cola$coefficients['price'] * price_coke * share_cola_coke),
+         diet_coke_elasticity_cola = -abs(model_can_cola$coefficients['price'] * price_diet_coke * share_cola_diet_coke),
+         pepsi_elasticity_cola = -abs(model_can_cola$coefficients['price'] * price_pepsi * share_cola_pepsi),
+         diet_pepsi_elasticity_cola = -abs(model_can_cola$coefficients['price'] * price_diet_pepsi * share_cola_diet_pepsi))
 
 cola.bottle = cola.bottle %>%
-  mutate(own_elasticity_carbbev = model_bottle_carbbev$coefficients['price'] * price * (1-share_carbbev),
-         own_elasticity_cola = model_bottle_cola$coefficients['price'] * price * (1-share_cola),
-         own_elasticity_l4 = model_bottle_cola$coefficients['price'] * price * (1-share_l4))
+  mutate(own_elasticity_cola = -abs(model_bottle_cola$coefficients['price']) * price * (1-share_cola),
+         coke_elasticity_cola = -abs(model_bottle_cola$coefficients['price'] * price_coke * share_cola_coke),
+         diet_coke_elasticity_cola = -abs(model_bottle_cola$coefficients['price'] * price_diet_coke * share_cola_diet_coke),
+         pepsi_elasticity_cola = -abs(model_bottle_cola$coefficients['price'] * price_pepsi * share_cola_pepsi),
+         diet_pepsi_elasticity_cola = -abs(model_bottle_cola$coefficients['price'] * price_diet_pepsi * share_cola_diet_pepsi))
+
+get_elasticity_summary = function(df){
+  for (l5 in unique(df$L5)) {
+    tmp = df %>%
+      filter(L5 != l5) %>% 
+      
+    
+  }
+}
+
+elasticities.can = cola.can %>% 
+  select(L5, own_elasticity_cola:diet_pepsi_elasticity_cola) %>% 
+  group_by(L5) %>%
+  summarise(own_el = median(own_elasticity_cola),
+            diet_coke_el = median(diet_coke_elasticity_cola),
+            coke_el = median(coke_elasticity_cola),
+            pepsi_el = median(pepsi_elasticity_cola),
+            diet_pepsi_el = median(diet_pepsi_elasticity_cola))
+
+
+elasticities.bottle = cola.bottle %>% 
+  select(L5, own_elasticity_cola:diet_pepsi_elasticity_cola) %>% 
+  group_by(L5) %>%
+  summarise(own_el = median(own_elasticity_cola),
+            diet_coke_el = median(diet_coke_elasticity_cola),
+            coke_el = median(coke_elasticity_cola),
+            pepsi_el = median(pepsi_elasticity_cola),
+            diet_pepsi_el = median(diet_pepsi_elasticity_cola))
+elasticities.bottle
