@@ -377,19 +377,25 @@ can.type.elasticities = cola.can.type %>%
             pepsi_el = median(pepsi_elasticity),
             diet_pepsi_el = median(diet_pepsi_elasticity))
 
-extract_elasticities(can.brand.elasticities)
-extract_elasticities(can.type.elasticities)
+nested_can_brand_elasticities = extract_elasticities(can.brand.elasticities)
+nested_can_type_elasticities = extract_elasticities(can.type.elasticities)
 
-extract_elasticities(bottle.brand.elasticities)
-extract_elasticities(can.brand.elasticities)
+nested_bottle_brand_elasticities = extract_elasticities(bottle.brand.elasticities)
+nested_bottle_type_elasticities = extract_elasticities(bottle.type.elasticities)
 
 stargaze = function(model){
   outpath = paste0(substitute(model), ".html")
   cat("saving to: ", outpath)
-  stargazer(model_bottle_carbbev, type = "html", out = outpath)
+  stargazer(model, type = "html", out = outpath)
 }
 
 stargaze(model_bottle_cola)
 stargaze(model_can_cola)
 stargaze(cans_nested_logit_brand)
 stargaze(cans_nested_logit_type)
+
+stargaze(nested_can_brand_elasticities)
+stargaze(nested_can_type_elasticities)
+
+stargaze(nested_bottle_brand_elasticities)
+stargaze(nested_bottle_type_elasticities)
