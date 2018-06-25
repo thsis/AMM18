@@ -1,5 +1,6 @@
 library("dplyr")
 library("tidyr")
+library("stargazer")
 
 data = read.csv("data/cola_amm_boston.csv", stringsAsFactors = FALSE)
 
@@ -81,20 +82,16 @@ cola.bottle = cola %>% filter(PACKAGE == "BOTTLE")
 ## CANS
 model_can_carbbev = lm(formulas[1], data = cola.can)
 summary(model_can_carbbev)
-plot(model_can_carbbev)
 
 model_can_cola = lm(formulas[2], data = cola.can)
 summary(model_can_cola)
-plot(model_can_cola)
 
 ## BOTTLES
 model_bottle_carbbev = lm(formulas[1], data = cola.bottle)
 summary(model_bottle_carbbev)
-plot(model_bottle_carbbev)
 
 model_bottle_cola = lm(formulas[2], data = cola.bottle)
 summary(model_bottle_cola)
-plot(model_bottle_cola)
 
 # Compute elasticities
 cola.can = cola.can %>%
@@ -154,18 +151,18 @@ extract_elasticities(elasticities.can)
 # Model: 1st Choice Diet vs Regular, 2nd Choice Coke vs Pepsi
 cola.type = cola %>%
   mutate(type = ifelse(L5 %in% c("COKE CLASSIC", "PEPSI"), "REGULAR", "DIET")) %>% 
-  group_by(type) %>% 
+  group_by(type, week) %>% 
   summarise(type_total_units = sum(units),
             type_total_revenue = sum(dollars))
 
 cola.pkg = cola %>%
-  group_by(PACKAGE) %>% 
+  group_by(PACKAGE, week) %>% 
   summarise(pkg_total_units = sum(units),
             pkg_total_revenue = sum(dollars))
 
 cola.brand = cola %>%
   mutate(brand = ifelse(L5 %in% c("COKE CLASSIC", "DIET COKE"), "COKE", "PEPSI")) %>% 
-  group_by(brand) %>% 
+  group_by(brand, week) %>% 
   summarise(brand_total_units = sum(units),
             brand_total_revenue = sum(dollars))
 
@@ -194,10 +191,10 @@ cola.bottle = cola %>% filter(PACKAGE == "BOTTLE") %>%
          w_share_type_revenue = units / type_total_revenue)
 
 
-model_vars = "price + feature + display + christmas + superbowl + july4th + thanksgiving"
+model_vars = "price + feature + display:feature + display + christmas + superbowl + july4th + thanksgiving"
 formulas = c("brand", "pkg", "type")
 formulas = paste0("log(share_cola) - log(outside_cola) ~ ",
-                  model_vars, " + log(w_share_", formulas, "_units) - 1")
+                  model_vars, " + log(w_share_", formulas, "_units)")
 
 # CANS
 cans_nested_logit_brand = lm(formulas[1], data = cola.can)
@@ -219,7 +216,180 @@ summary(bottles_nested_logit_pkg)
 bottles_nested_logit_type = lm(formulas[3], data = cola.bottle)
 summary(bottles_nested_logit_type)
 
-# Bullshit residuals:
-hist(cans_nested_logit_brand$residuals)
-
 # Elasticities
+sigma.bottle.brand = bottles_nested_logit_brand$coefficients['log(w_share_brand_units)']
+sigma.bottle.pkg = bottles_nested_logit_pkg$coefficients['log(w_share_pkg_units)']
+sigma.bottle.type = bottles_nested_logit_type$coefficients['log(w_share_type_units)']
+
+elasticity = function(df, within_share, share, model, price="price"){
+  sigma = model$coefficients[paste0("log(", within_share, ")")]
+  alpha = model$coefficients['price']
+  (1-sigma)^(-1) * (1 - sigma * df[, within_share] - (1-sigma) * df[, share]) * df[, price]
+}
+
+# Bottle: Brand
+cola.bottle.brand = cola.bottle
+cola.bottle.brand$own_elasticity = elasticity(df = cola.bottle, 
+                                              within_share = "w_share_brand_units", 
+                                              share = "share_cola", 
+                                              model = bottles_nested_logit_brand)
+cola.bottle.brand$coke_elasticity = elasticity(df = cola.bottle, 
+                                               within_share = "w_share_brand_units", 
+                                               share = "share_cola",
+                                               model = bottles_nested_logit_brand,
+                                               price = "price_coke")
+cola.bottle.brand$diet_coke_elasticity = elasticity(df = cola.bottle, 
+                                                    within_share = "w_share_brand_units", 
+                                                    share = "share_cola",
+                                                    model = bottles_nested_logit_brand,
+                                                    price = "price_diet_coke")
+cola.bottle.brand$pepsi_elasticity = elasticity(df = cola.bottle, 
+                                                within_share = "w_share_brand_units", 
+                                                share = "share_cola",
+                                                model = bottles_nested_logit_brand,
+                                                price = "price_pepsi")
+cola.bottle.brand$diet_pepsi_elasticity = elasticity(df = cola.bottle, 
+                                                     within_share = "w_share_brand_units", 
+                                                     share = "share_cola",
+                                                     model = bottles_nested_logit_brand,
+                                                     price = "price_diet_pepsi")
+
+bottle.brand.elasticities = cola.bottle.brand %>% 
+  select(L5, own_elasticity:diet_pepsi_elasticity) %>%
+  group_by(L5) %>% 
+  summarise(own_el = median(own_elasticity),
+            diet_coke_el = median(diet_coke_elasticity),
+            coke_el = median(coke_elasticity),
+            pepsi_el = median(pepsi_elasticity),
+            diet_pepsi_el = median(diet_pepsi_elasticity))
+
+extract_elasticities(bottle.brand.elasticities)
+
+# Bottle:Type
+cola.bottle.type = cola.bottle
+cola.bottle.type$own_elasticity = elasticity(df = cola.bottle, 
+                                              within_share = "w_share_type_units", 
+                                              share = "share_cola", 
+                                              model = bottles_nested_logit_type)
+cola.bottle.type$coke_elasticity = elasticity(df = cola.bottle, 
+                                               within_share = "w_share_type_units", 
+                                               share = "share_cola",
+                                               model = bottles_nested_logit_type,
+                                               price = "price_coke")
+cola.bottle.type$diet_coke_elasticity = elasticity(df = cola.bottle, 
+                                                    within_share = "w_share_type_units", 
+                                                    share = "share_cola",
+                                                    model = bottles_nested_logit_type,
+                                                    price = "price_diet_coke")
+cola.bottle.type$pepsi_elasticity = elasticity(df = cola.bottle, 
+                                                within_share = "w_share_type_units", 
+                                                share = "share_cola",
+                                                model = bottles_nested_logit_type,
+                                                price = "price_pepsi")
+cola.bottle.type$diet_pepsi_elasticity = elasticity(df = cola.bottle, 
+                                                     within_share = "w_share_type_units", 
+                                                     share = "share_cola",
+                                                     model = bottles_nested_logit_type,
+                                                     price = "price_diet_pepsi")
+
+bottle.type.elasticities = cola.bottle.type %>% 
+  select(L5, own_elasticity:diet_pepsi_elasticity) %>%
+  group_by(L5) %>% 
+  summarise(own_el = median(own_elasticity),
+            diet_coke_el = median(diet_coke_elasticity),
+            coke_el = median(coke_elasticity),
+            pepsi_el = median(pepsi_elasticity),
+            diet_pepsi_el = median(diet_pepsi_elasticity))
+
+extract_elasticities(bottle.type.elasticities)
+
+# Can: Brand
+cola.can.brand = cola.can
+cola.can.brand$own_elasticity = elasticity(df = cola.can, 
+                                              within_share = "w_share_brand_units", 
+                                              share = "share_cola", 
+                                              model = cans_nested_logit_brand)
+cola.can.brand$coke_elasticity = elasticity(df = cola.can, 
+                                               within_share = "w_share_brand_units", 
+                                               share = "share_cola",
+                                               model = cans_nested_logit_brand,
+                                               price = "price_coke")
+cola.can.brand$diet_coke_elasticity = elasticity(df = cola.can, 
+                                                    within_share = "w_share_brand_units", 
+                                                    share = "share_cola",
+                                                    model = cans_nested_logit_brand,
+                                                    price = "price_diet_coke")
+cola.can.brand$pepsi_elasticity = elasticity(df = cola.can, 
+                                                within_share = "w_share_brand_units", 
+                                                share = "share_cola",
+                                                model = cans_nested_logit_brand,
+                                                price = "price_pepsi")
+cola.can.brand$diet_pepsi_elasticity = elasticity(df = cola.can, 
+                                                     within_share = "w_share_brand_units", 
+                                                     share = "share_cola",
+                                                     model = cans_nested_logit_brand,
+                                                     price = "price_diet_pepsi")
+
+can.brand.elasticities = cola.can.brand %>% 
+  select(L5, own_elasticity:diet_pepsi_elasticity) %>%
+  group_by(L5) %>% 
+  summarise(own_el = median(own_elasticity),
+            diet_coke_el = median(diet_coke_elasticity),
+            coke_el = median(coke_elasticity),
+            pepsi_el = median(pepsi_elasticity),
+            diet_pepsi_el = median(diet_pepsi_elasticity))
+
+extract_elasticities(can.brand.elasticities)
+
+# Can: Type
+cola.can.type = cola.can
+cola.can.type$own_elasticity = elasticity(df = cola.can, 
+                                             within_share = "w_share_type_units", 
+                                             share = "share_cola", 
+                                             model = cans_nested_logit_type)
+cola.can.type$coke_elasticity = elasticity(df = cola.can, 
+                                              within_share = "w_share_type_units", 
+                                              share = "share_cola",
+                                              model = cans_nested_logit_type,
+                                              price = "price_coke")
+cola.can.type$diet_coke_elasticity = elasticity(df = cola.can, 
+                                                   within_share = "w_share_type_units", 
+                                                   share = "share_cola",
+                                                   model = cans_nested_logit_type,
+                                                   price = "price_diet_coke")
+cola.can.type$pepsi_elasticity = elasticity(df = cola.can, 
+                                               within_share = "w_share_type_units", 
+                                               share = "share_cola",
+                                               model = cans_nested_logit_type,
+                                               price = "price_pepsi")
+cola.can.type$diet_pepsi_elasticity = elasticity(df = cola.can, 
+                                                    within_share = "w_share_type_units", 
+                                                    share = "share_cola",
+                                                    model = cans_nested_logit_type,
+                                                    price = "price_diet_pepsi")
+
+can.type.elasticities = cola.can.type %>% 
+  select(L5, own_elasticity:diet_pepsi_elasticity) %>%
+  group_by(L5) %>% 
+  summarise(own_el = median(own_elasticity),
+            diet_coke_el = median(diet_coke_elasticity),
+            coke_el = median(coke_elasticity),
+            pepsi_el = median(pepsi_elasticity),
+            diet_pepsi_el = median(diet_pepsi_elasticity))
+
+extract_elasticities(can.brand.elasticities)
+extract_elasticities(can.type.elasticities)
+
+extract_elasticities(bottle.brand.elasticities)
+extract_elasticities(can.brand.elasticities)
+
+stargaze = function(model){
+  outpath = paste0(substitute(model), ".html")
+  cat("saving to: ", outpath)
+  stargazer(model_bottle_carbbev, type = "html", out = outpath)
+}
+
+stargaze(model_bottle_cola)
+stargaze(model_can_cola)
+stargaze(cans_nested_logit_brand)
+stargaze(cans_nested_logit_type)
