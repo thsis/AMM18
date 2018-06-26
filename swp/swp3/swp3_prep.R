@@ -383,19 +383,24 @@ nested_can_type_elasticities = extract_elasticities(can.type.elasticities)
 nested_bottle_brand_elasticities = extract_elasticities(bottle.brand.elasticities)
 nested_bottle_type_elasticities = extract_elasticities(bottle.type.elasticities)
 
-stargaze = function(model){
+tabgaze = function(model){
   outpath = paste0(substitute(model), ".html")
   cat("saving to: ", outpath)
   stargazer(model, type = "html", out = outpath)
 }
 
-stargaze(model_bottle_cola)
-stargaze(model_can_cola)
-stargaze(cans_nested_logit_brand)
-stargaze(cans_nested_logit_type)
+reggaze = function(name, ...){
+  outpath = paste0(name, ".html")
+  cat("saving to: ", outpath)
+  stargazer(..., type = "html", out = outpath)
+}
 
-stargaze(nested_can_brand_elasticities)
-stargaze(nested_can_type_elasticities)
 
-stargaze(nested_bottle_brand_elasticities)
-stargaze(nested_bottle_type_elasticities)
+reggaze(name = "regressions_3a", model_bottle_cola, model_can_cola)
+reggaze(name = "regressions_3b", cans_nested_logit_brand,
+        cans_nested_logit_type, bottles_nested_logit_brand,
+        bottles_nested_logit_type)
+
+
+tabgaze(nested_can_brand_elasticities)
+tabgaze(nested_can_type_elasticities)
