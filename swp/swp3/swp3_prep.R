@@ -143,8 +143,8 @@ extract_elasticities = function(eldf){
   return(round(res,2))
 }
 
-extract_elasticities(elasticities.bottle)
-extract_elasticities(elasticities.can)
+elasticities_3a_bottle = extract_elasticities(elasticities.bottle)
+elasticities_3a_can = extract_elasticities(elasticities.can)
 
 ################################################################################
 # 3 b: compute within shares
@@ -395,7 +395,7 @@ reggaze = function(name, ...){
   stargazer(..., type = "html", out = outpath)
 }
 
-
+# Table outputs
 reggaze(name = "regressions_3a", model_bottle_cola, model_can_cola)
 reggaze(name = "regressions_3b", cans_nested_logit_brand,
         cans_nested_logit_type, bottles_nested_logit_brand,
@@ -404,3 +404,22 @@ reggaze(name = "regressions_3b", cans_nested_logit_brand,
 
 tabgaze(nested_can_brand_elasticities)
 tabgaze(nested_can_type_elasticities)
+
+tabgaze(elasticities_3a_bottle)
+tabgaze(elasticities_3a_can)
+
+
+# Diagnostic plots
+par(mfrow = c(2, 2))
+
+plot(model_bottle_cola)
+plot(model_can_cola)
+
+plot(bottles_nested_logit_brand)
+plot(bottles_nested_logit_type)
+
+plot(cans_nested_logit_brand)
+plot(cans_nested_logit_type)
+
+
+par(mfrow = c(1, 1))
