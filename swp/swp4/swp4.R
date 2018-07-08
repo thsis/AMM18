@@ -36,6 +36,7 @@ data = data %>%
          thanksgiving = week %in% thanksgiving_filter) %>% 
   group_by(L5, PACKAGE) %>% 
   arrange(year, week) %>% 
+  # Fuck that shit.
   mutate(lagged_liters = lag(liters),
          lagged_liter_price = lag(price_per_liter))
 
@@ -62,7 +63,7 @@ cola = cola %>%
   select(c(colnames(cola), "within_share"))
   
 # Aggregated Logit Model
-formula = 'log(share)-log(share_og) ~ -1+L5+year+price_per_liter+display_all+feature_all+christmas+lagged_liters+lagged_liter_price'
+formula = 'log(share)-log(share_og) ~ -1+L5+year+price_per_liter+display_all+feature_all+christmas'
 
 agg_log_bottle = lm(formula = formula,
                     data = cola,
@@ -113,14 +114,15 @@ get_agg_el_table = function(data, pkg){
   cross = unlist(elasticities.agg[, "cross.el"])
   
   out = matrix(cross, 4, 4)
+  
   diag(out) = own
-  out[lower.tri(out)] = NA
+
   rownames(out) = colnames(out) = levels(data$L5)
   return(round(out, 2))
 }
 
-mean.agg.el.bottle = get_agg_el_table(cola, "BOTTLE")
-mean.agg.el.can = get_agg_el_table(cola, "CAN")
+(mean.agg.el.bottle = get_agg_el_table(cola, "BOTTLE"))
+(mean.agg.el.can = get_agg_el_table(cola, "CAN"))
 
 # Nested Logit Model
 # First choice
@@ -225,25 +227,12 @@ get_nest_el_table = function(data, pkg){
   return(round(out, 2))
 }
 
-mean.nest.el.bottle = get_nest_el_table(cola, "BOTTLE")
-mean.nest.el.can = get_nest_el_table(cola, "CAN")
+(mean.nest.el.bottle = get_nest_el_table(cola, "BOTTLE"))
+(mean.nest.el.can = get_nest_el_table(cola, "CAN"))
 
 
 ####################################################################
 # Simulations
-## Price increase
-
-cola.price_up = cola %>%
-  mutate(price_per_liter = price_per_liter * 1.2)
-
-delta = predict(agg_log_bottle, newdata = cola.price_up)
-cola.price_up$exp.delta = exp(delta)
-cola.price_up %>% 
-  group_by(week) %>% 
-  summarise(sum.exp.delta = sum(exp.delta)) %>%
-  right_join(cola.price_up, by = "week") %>%
-  mutate(predshare = exp.delta / (sum.exp.delta + 1)) %>% 
-  select(c(colnames(cola.price_up), predshare))
 
 simulate.agg = function(data, model, modifier, brands = c("DIET COKE")){
   df = data %>%
@@ -286,40 +275,47 @@ cola.can$agg.predshare.minus20 = simulate.agg(cola.can, agg_log_can, -0.2)
 # tmp$rall<-tmp$predshare.ALL.8/tmp$predshare
 # head(tmp)
 
-
+data = cola.bottle
 # Ti kanei o malakas;
+simulate.nest = function(data, brands, modifier, model){
+  sigma = model$coefficients["log(within_share)"]
+  print(sigma)
+  df = data %>%
+    mutate(
+      change_price = L5 %in% brands,
+      price_per_liter = price_per_liter + change_price * price_per_liter * modifier)
+  
+  delta = predict(model, newdata = df)
+  df$Dg = exp(delta/(1 - sigma))
+  
+  df %>% 
+    group_by(year, week) %>% 
+    
+}
+
 # data.cola.agg$DC.price<-data.cola.agg$price*.2*data.cola.agg$DC
 # data.cola.agg$price.sim<-data.cola.agg$price-data.cola.agg$DC.price
 # 
-# 
 # d<-data.cola.agg
-# head(d)
 # 
 # d$delta<-d$CC*est['b1']+d$DC*est['b2']+d$P*est['b4']+d$DP*est['b3']+d$y2011*est['beta0']+d$displayall*est['beta1']+d$featureall*est['beta2']+d$price.sim*est['alpha']
 # d$tmp<-d$delta/(1-est['sigma'])
 # d$tmp<-exp(d$tmp)
 # 
-# 
 # tmp<-aggregate(cbind(tmp) ~ MARKET+CHAIN+store_type+diet+week, data = d, sum, na.rm = TRUE)
 # tmp<-plyr::rename(tmp, c("tmp"="Dg"))
 # 
-# head(tmp)
 # d <- merge(d,tmp,by=c("MARKET","CHAIN","store_type","diet","week")) 
-# head(d)
 # d$share.jg<-d$tmp/d$Dg
-# head(d)
 # d$nom.Dg<-d$Dg^(1-est['sigma'])
-# head(d)
 # 
 # tmp<-aggregate(cbind(nom.Dg) ~ MARKET+CHAIN+store_type+week, data = d, sum, na.rm = TRUE)
 # tmp<-plyr::rename(tmp, c("nom.Dg"="denom.Dg"))
-# head(tmp)
+
 # d <- merge(d,tmp,by=c("MARKET","CHAIN","store_type","week")) 
-# head(d)
+
 # d$denom.Dg<-d$denom.Dg/2+1
 # d$share.g<-d$nom.Dg/d$denom.Dg
-# head(d,10)
-# 
 # d$share.nl<-d$share.jg*d$share.g
 # aggregate(cbind(share.nl) ~ MARKET+CHAIN+store_type+L5, data = d, sum, na.rm = TRUE)
 
