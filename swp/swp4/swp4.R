@@ -127,7 +127,7 @@ get_agg_el_table = function(data, pkg){
 
 # Nested Logit Model
 # First choice
-formula = 'log(share)-log(share_og) ~ -1+L5+log(within_share)+year+price_per_liter+display_all+feature_all+christmas+lagged_liters+lagged_liter_price'
+formula = 'log(share)-log(share_og) ~ -1+L5+log(within_share)+year+price_per_liter+display_all+feature_all+christmas'
 nested_log_bottle = lm(formula = formula,
                        data = cola,
                        subset = cola$PACKAGE == "BOTTLE")
@@ -282,14 +282,14 @@ simulate.nest = function(data, brands, modifier, model){
     right_join(df, by = c("year", "week", "type"))
   df = df %>%
     group_by(year, week) %>% 
-    summarise(sum.Dg = sum(Dg) + 1) %>% 
+    summarise(sum.Dg = sum(Dg)) %>% 
     right_join(df, by = c("year", "week")) %>% 
     mutate(share.jg = exp.delta / Dg,
            share.g.nom = Dg ^ (1 - sigma)) 
 
   df = df %>%
     group_by(year, week) %>% 
-    summarise(share.g.denom = sum(share.g.nom)) %>% 
+    summarise(share.g.denom = sum(share.g.nom) / 2 + 1) %>% 
     right_join(df, by = c("year", "week")) %>% 
     mutate(share.g = share.g.nom / (share.g.denom),
            share.j = share.g * share.jg) %>%
@@ -298,52 +298,80 @@ simulate.nest = function(data, brands, modifier, model){
   return(df)
 }
 # DIET COKE changes the price
-simulated.bottle.nest.all.minus20 = simulate.nest(
+simulated.bottle.nest.dc.minus20 = simulate.nest(
   cola.bottle, 
   modifier = -0.2, 
   brands = "DIET COKE", 
   model = nested_log_bottle)
-simulated.bottle.nest.all.plus20 = simulate.nest(
+simulated.bottle.nest.dc.plus20 = simulate.nest(
   cola.bottle, 
   modifier = 0.2, 
   brands = "DIET COKE", 
+  model = nested_log_bottle)
+
+simulated.can.nest.dc.minus20 = simulate.nest(
+  cola.can, 
+  modifier = -0.2, 
+  brands = "DIET COKE", 
+  model = nested_log_can)
+simulated.can.nest.dc.plus20 = simulate.nest(
+  cola.can, 
+  modifier = 0.2, 
+  brands = "DIET COKE", 
+  model = nested_log_can)
+
+# All brands change the price
+simulated.bottle.nest.all.minus20 = simulate.nest(
+  cola.bottle, 
+  modifier = -0.2, 
+  brands = c("DIET COKE", "COKE CLASSIC", "DIET PEPSI", "PEPSI"), 
+  model = nested_log_bottle)
+simulated.bottle.nest.all.plus20 = simulate.nest(
+  cola.bottle, 
+  modifier = 0.2, 
+  brands =  c("DIET COKE", "COKE CLASSIC", "DIET PEPSI", "PEPSI"),
   model = nested_log_bottle)
 
 simulated.can.nest.all.minus20 = simulate.nest(
   cola.can, 
   modifier = -0.2, 
-  brands = "DIET COKE", 
+  brands =  c("DIET COKE", "COKE CLASSIC", "DIET PEPSI", "PEPSI"),
   model = nested_log_can)
 simulated.can.nest.all.plus20 = simulate.nest(
-  cola.can, modifier = 0.2, 
-  brands = "DIET COKE", 
-  model = nested_log_can)
-
-# All brands change the price
-simulated.bottle.nest.minus20 = simulate.nest(
-  cola.bottle, 
-  modifier = -0.2, 
-  brands = c("DIET COKE", "COKE CLASSIC", "DIET PEPSI", "PEPSI"), 
-  model = nested_log_bottle)
-simulated.bottle.nest.plus20 = simulate.nest(
-  cola.bottle, 
-  modifier = 0.2, 
-  brands =  c("DIET COKE", "COKE CLASSIC", "DIET PEPSI", "PEPSI"),
-  model = nested_log_bottle)
-
-simulated.can.nest.minus20 = simulate.nest(
-  cola.can, 
-  modifier = -0.2, 
-  brands =  c("DIET COKE", "COKE CLASSIC", "DIET PEPSI", "PEPSI"),
-  model = nested_log_can)
-simulated.can.nest.plus20 = simulate.nest(
   cola.can,
   modifier = 0.2, 
   brands =  c("DIET COKE", "COKE CLASSIC", "DIET PEPSI", "PEPSI"), 
   model = nested_log_can)
 
-plot.sim = function(sim.frame){
-  sim.frame %>% 
-    ggplot(aes(x = week, y = share.j)) +
-    geom_line()
+plot.sim = function(sim.frame, title){
+  as.data.frame(sim.frame) %>%
+    select(L5, week, share, share.j) %>% 
+    melt() %>% 
+    mutate(variable = ifelse(variable == "share", "Observed", "Simulated")) %>% 
+    ggplot(aes(x = as.numeric(as.character(week)), 
+               y = value, 
+               color = L5, 
+               group = variable, 
+               linetype = variable)) +
+    facet_wrap(~ L5) +
+    geom_line() +
+    theme_bw() +
+    ggtitle(title) +
+    scale_fill_discrete("") +
+    scale_linetype("") +
+    scale_y_continuous("Shares") +
+    scale_x_continuous("Week") 
 }
+
+plot.sim(simulated.bottle.nest.dc.minus20, 
+           title = "Simulated Shares: Price Reduction DIET COKE")
+# Maybe not that one...
+plot.sim(simulated.bottle.nest.dc.plus20, "Bottles - Simulated Shares: Price Increase DIET COKE")
+plot.sim(simulated.bottle.nest.all.minus20, "Bottles - Simulated Shares: Price Decrease all Brands")
+
+
+plot.sim(simulated.bottle.nest.dc.minus20, "lala")
+plot.sim(simulated.can.nest.all.plus20, "Cans - Simulated Shares: Price Increase all Brands")
+
+stargazer(agg_log_bottle, agg_log_can, nested_log_bottle, nested_log_can,
+          column.labels = c("Aggr. Logit Bottles", "Aggr. Logit Cans", "Nested Logit Bottles", "Nested Logit Cans"))
