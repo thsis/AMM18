@@ -1,5 +1,6 @@
 library("dplyr")
 library("reshape")
+library("ggplot2")
 library("stargazer")
 
 data = read.csv("data/cola_amm_boston.csv")
@@ -7,7 +8,7 @@ data = read.csv("data/cola_amm_boston.csv")
 # Prepare containers for later variable definition.
 informative_columns = c('year', 'week', 'L5', 'VOL_EQ', 'PACKAGE',
                         'units', 'dollars', 'price', 'feature',
-                        'display', 'total_vol_cola', 'total_rev_carbbev')
+                        'display', 'total_vol_cola', 'total_rev_cola')
 
 superbowl_filter = c(1117, 1170, 1217, 1274, 1327, 1379, 1431, 1483, 1535, 1588, 1640)
 christmas_filter = c(1165, 1217, 1269, 1321, 1373, 1425, 1478, 1530, 1582, 1634, 1687)
@@ -46,7 +47,7 @@ cola = data %>%
   summarise(total_liters = sum(liters),
             total_revenue = sum(dollars)) %>% 
   right_join(data, by = c("year", "week", "PACKAGE")) %>%
-  mutate(share = (liters / total_liters) * (total_revenue / total_rev_carbbev))
+  mutate(share = (liters / total_liters) * (total_revenue / total_rev_cola))
 
 cola = cola %>% 
   group_by(year, week, PACKAGE) %>% 
@@ -233,7 +234,7 @@ get_nest_el_table = function(data, pkg){
 
 ####################################################################
 # Simulations
-
+# Simulate Aggregated Logit
 simulate.agg = function(data, model, modifier, brands = c("DIET COKE")){
   df = data %>%
       mutate(
@@ -260,62 +261,89 @@ cola.bottle$agg.predshare.minus20 = simulate.agg(cola.bottle, agg_log_bottle, -0
 
 cola.can$agg.predshare.plus20 = simulate.agg(cola.can, agg_log_can, 0.2)
 cola.can$agg.predshare.minus20 = simulate.agg(cola.can, agg_log_can, -0.2)
-# Ti kanei o poustis;
-# 
-# d$delta.ALL.8<-d$CC*est['b1']+d$DC*est['b2']+d$P*est['b4']+d$DP*est['b3']+d$y2011*est['beta0']+d$displayall*est['beta1']+d$featureall*est['beta2']+d$price.sim*est['alpha']
-# d$expdelta.ALL.8<-exp(d$delta.ALL.8)
-# tmp<-aggregate(cbind(expdelta.ALL.8) ~ MARKET+CHAIN+store_type+week, data = d, sum, na.rm = TRUE)
-# tmp<-plyr::rename(tmp, c("expdelta.ALL.8"="sumexpdelta.ALL.8"))
-# 
-# d <- merge(d,tmp,by=c("MARKET","CHAIN","store_type","week")) 
-# head(d)
-# d$predshare.ALL.8<-d$expdelta.ALL.8/(1+d$sumexpdelta.ALL.8)
-# 
-# tmp<-aggregate(cbind(predshare,predshare.DC.8,predshare.ALL.8) ~ MARKET+CHAIN+store_type+L4+L5, data = d, mean, na.rm = TRUE)
-# tmp$rall<-tmp$predshare.ALL.8/tmp$predshare
-# head(tmp)
 
-data = cola.bottle
-# Ti kanei o malakas;
+# Simulate Aggregated Nested Logit
 simulate.nest = function(data, brands, modifier, model){
+  
   sigma = model$coefficients["log(within_share)"]
-  print(sigma)
+  
   df = data %>%
     mutate(
+      type = ifelse(L5 %in% c("DIET COKE", "DIET PEPSI"), "DIET", "REGULAR"),
       change_price = L5 %in% brands,
       price_per_liter = price_per_liter + change_price * price_per_liter * modifier)
   
   delta = predict(model, newdata = df)
-  df$Dg = exp(delta/(1 - sigma))
+  df$exp.delta = exp(delta/(1 - sigma))
   
-  df %>% 
+  df = df %>% 
+    group_by(year, week, type) %>% 
+    summarise(Dg = sum(exp.delta)) %>% 
+    right_join(df, by = c("year", "week", "type"))
+  df = df %>%
     group_by(year, week) %>% 
-    
+    summarise(sum.Dg = sum(Dg) + 1) %>% 
+    right_join(df, by = c("year", "week")) %>% 
+    mutate(share.jg = exp.delta / Dg,
+           share.g.nom = Dg ^ (1 - sigma)) 
+
+  df = df %>%
+    group_by(year, week) %>% 
+    summarise(share.g.denom = sum(share.g.nom)) %>% 
+    right_join(df, by = c("year", "week")) %>% 
+    mutate(share.g = share.g.nom / (share.g.denom),
+           share.j = share.g * share.jg) %>%
+    select(colnames(data), share.g, share.j, share.jg)
+  
+  return(df)
 }
+# DIET COKE changes the price
+simulated.bottle.nest.all.minus20 = simulate.nest(
+  cola.bottle, 
+  modifier = -0.2, 
+  brands = "DIET COKE", 
+  model = nested_log_bottle)
+simulated.bottle.nest.all.plus20 = simulate.nest(
+  cola.bottle, 
+  modifier = 0.2, 
+  brands = "DIET COKE", 
+  model = nested_log_bottle)
 
-# data.cola.agg$DC.price<-data.cola.agg$price*.2*data.cola.agg$DC
-# data.cola.agg$price.sim<-data.cola.agg$price-data.cola.agg$DC.price
-# 
-# d<-data.cola.agg
-# 
-# d$delta<-d$CC*est['b1']+d$DC*est['b2']+d$P*est['b4']+d$DP*est['b3']+d$y2011*est['beta0']+d$displayall*est['beta1']+d$featureall*est['beta2']+d$price.sim*est['alpha']
-# d$tmp<-d$delta/(1-est['sigma'])
-# d$tmp<-exp(d$tmp)
-# 
-# tmp<-aggregate(cbind(tmp) ~ MARKET+CHAIN+store_type+diet+week, data = d, sum, na.rm = TRUE)
-# tmp<-plyr::rename(tmp, c("tmp"="Dg"))
-# 
-# d <- merge(d,tmp,by=c("MARKET","CHAIN","store_type","diet","week")) 
-# d$share.jg<-d$tmp/d$Dg
-# d$nom.Dg<-d$Dg^(1-est['sigma'])
-# 
-# tmp<-aggregate(cbind(nom.Dg) ~ MARKET+CHAIN+store_type+week, data = d, sum, na.rm = TRUE)
-# tmp<-plyr::rename(tmp, c("nom.Dg"="denom.Dg"))
+simulated.can.nest.all.minus20 = simulate.nest(
+  cola.can, 
+  modifier = -0.2, 
+  brands = "DIET COKE", 
+  model = nested_log_can)
+simulated.can.nest.all.plus20 = simulate.nest(
+  cola.can, modifier = 0.2, 
+  brands = "DIET COKE", 
+  model = nested_log_can)
 
-# d <- merge(d,tmp,by=c("MARKET","CHAIN","store_type","week")) 
+# All brands change the price
+simulated.bottle.nest.minus20 = simulate.nest(
+  cola.bottle, 
+  modifier = -0.2, 
+  brands = c("DIET COKE", "COKE CLASSIC", "DIET PEPSI", "PEPSI"), 
+  model = nested_log_bottle)
+simulated.bottle.nest.plus20 = simulate.nest(
+  cola.bottle, 
+  modifier = 0.2, 
+  brands =  c("DIET COKE", "COKE CLASSIC", "DIET PEPSI", "PEPSI"),
+  model = nested_log_bottle)
 
-# d$denom.Dg<-d$denom.Dg/2+1
-# d$share.g<-d$nom.Dg/d$denom.Dg
-# d$share.nl<-d$share.jg*d$share.g
-# aggregate(cbind(share.nl) ~ MARKET+CHAIN+store_type+L5, data = d, sum, na.rm = TRUE)
+simulated.can.nest.minus20 = simulate.nest(
+  cola.can, 
+  modifier = -0.2, 
+  brands =  c("DIET COKE", "COKE CLASSIC", "DIET PEPSI", "PEPSI"),
+  model = nested_log_can)
+simulated.can.nest.plus20 = simulate.nest(
+  cola.can,
+  modifier = 0.2, 
+  brands =  c("DIET COKE", "COKE CLASSIC", "DIET PEPSI", "PEPSI"), 
+  model = nested_log_can)
 
+plot.sim = function(sim.frame){
+  sim.frame %>% 
+    ggplot(aes(x = week, y = share.j)) +
+    geom_line()
+}
