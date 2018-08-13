@@ -83,7 +83,9 @@ simulation of price changes.
 AMM(self)
 ```
 
-Model class for the 2018 Advanced Marketing Modelling lecture.
+Model class for the 2018 Advanced Marketing Modeling lecture.
+
+Estimate a model, calculate elasticities and simulate the effects of a price change in just a few lines.
 
 Examples:
 ```python
