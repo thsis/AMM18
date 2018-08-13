@@ -160,6 +160,20 @@ amm.fit(data=data.loc[data.PACKAGE == "BOTTLE"],
         share="share",
         agg=["year", "week"])
 ```
+<h3 id="models.amm.AMM.simulate">elasticities</h3>
+
+```python
+AMM.elasticities(self)
+```
+Calculate elasticities.
+
+Returns
+* table of estimated elasticities
+
+Examples:
+```python
+amm.elasticities()
+```
 <h3 id="models.amm.AMM.simulate">simulate</h3>
 
 ```python

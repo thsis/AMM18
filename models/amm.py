@@ -154,6 +154,12 @@ class AMM(object):
         return self
 
     def elasticities(self):
+        """
+        Calculate elasticities.
+
+        Returns
+        * table of estimated elasticities
+        """
         self.elasticities = self.__get_elasticities(self.data,
                                                     "share",
                                                     "price_liter")
@@ -170,7 +176,7 @@ class AMM(object):
                 columns=self.elasticities.k,
                 aggfunc=np.mean)
 
-        return self
+        return self.table_elasticities
 
     def simulate(self, modifiers={}):
         """
