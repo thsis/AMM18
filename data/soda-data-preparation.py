@@ -111,5 +111,20 @@ data = pd.concat([data, cola], sort=False)
 data = data.merge(weather, on=["week"], how='left')
 data = data.merge(sugar, on=["week"], how='left')
 
+# Add seasonal data
+seasonals = {"thanksgiving": [1160, 1213, 1265, 1317, 1369, 1421, 1473, 1526,
+                              1578, 1630, 1682],
+             "christmas": [1165, 1217, 1269, 1321, 1373, 1425, 1478, 1530,
+                           1582, 1634, 1686],
+             "newyearseve": [1166, 1218, 1270, 1322, 1374, 1426, 1479, 1531,
+                             1583, 1635, 1687]}
+
+data["thanksgiving"] = data["week"].apply(
+    lambda x: x in seasonals["thanksgiving"]).astype(int)
+data["christmas"] = data["week"].apply(
+    lambda x: x in seasonals["christmas"]).astype(int)
+data["newyearseve"] = data["week"].apply(
+    lambda x: x in seasonals["newyearseve"]).astype(int)
+
+
 data.to_csv(outpath, index=None)
-sugar.columns
