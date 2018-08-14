@@ -1,13 +1,12 @@
 setwd("C:/Users/klapperd/Dropbox/Humboldt/Lehre/AMM/AMM_SS2018/Data")
 
-
 # Aggregate Cola Data
 data.cola<-read.csv("cola_amm_boston.csv")
 #data.cola <- subset(data.cola, data.cola$PACKAGE=="BOTTLE")
 #data.cola <- subset(data.cola, data.cola$store_type=="GROC")
-data.cola <- subset(data.cola, data.cola$CHAIN==65)
+data.cola <- subset(data.cola, data.cola$CHAIN==33)                    )
 str(data.cola)
-nrow(data.cola)
+
 data.cola$yearfactor<-as.factor(data.cola$year)
 data.cola$iri_keyfactor<-as.factor(data.cola$iri_key)
 data.cola$display_minor<- ifelse(data.cola$display==1,1,0)
@@ -21,11 +20,56 @@ data.cola$featureall<-data.cola$feature_small+data.cola$feature_medium+data.cola
 
 data.cola.agg<-data.cola
 
+data.cola.agg$price<-data.cola.agg$price*data.cola.agg$units
+data.cola.agg$price_deflated<-data.cola.agg$price_deflated*data.cola.agg$units
+
+data.cola.agg$display_minor<-data.cola.agg$display_minor*data.cola.agg$units
+data.cola.agg$display_major<-data.cola.agg$display_major*data.cola.agg$units
+data.cola.agg$feature_small<-data.cola.agg$feature_small*data.cola.agg$units
+data.cola.agg$feature_medium<-data.cola.agg$feature_medium*data.cola.agg$units
+data.cola.agg$feature_large<-data.cola.agg$feature_large*data.cola.agg$units
+data.cola.agg$coupon<-data.cola.agg$coupon*data.cola.agg$units
+data.cola.agg$displayall<-data.cola.agg$displayall*data.cola.agg$units
+data.cola.agg$featureall<-data.cola.agg$featureall*data.cola.agg$units
+
+units.sum<-aggregate(cbind(units, dollars) ~ 
+                       
+                       MARKET+CHAIN+store_type+year+week+L4+L5+VOL_EQ+PACKAGE, 
+                     
+                     
+                     data = data.cola.agg, sum, na.rm = TRUE)
+
+head(units.sum,10)
+tmp<- aggregate(cbind(price,price_deflated,display_minor,display_major,feature_small,feature_medium,feature_large,
+                      coupon,displayall,featureall) ~ 
+                  
+                  MARKET+CHAIN+store_type+year+week+L4+L5+VOL_EQ+PACKAGE,
+                data = data.cola.agg, sum, na.rm = TRUE)
+
+head(tmp,10)
+data.cola.agg <- merge(units.sum,tmp,by=c("MARKET","CHAIN","store_type","year","week","L4","L5","VOL_EQ","PACKAGE")) 
+
+head(data.cola.agg,100)
+data.cola.agg$price<-data.cola.agg$price/data.cola.agg$units
+
+data.cola.agg$price_deflated<-data.cola.agg$price_deflated/data.cola.agg$units
+
+
+data.cola.agg$display_minor<-data.cola.agg$display_minor/data.cola.agg$units
+data.cola.agg$display_major<-data.cola.agg$display_major/data.cola.agg$units
+data.cola.agg$feature_small<-data.cola.agg$feature_small/data.cola.agg$units
+data.cola.agg$feature_medium<-data.cola.agg$feature_medium/data.cola.agg$units
+data.cola.agg$feature_large<-data.cola.agg$feature_large/data.cola.agg$units
+data.cola.agg$coupon<-data.cola.agg$coupon/data.cola.agg$units
+data.cola.agg$displayall<-data.cola.agg$displayall/data.cola.agg$units
+data.cola.agg$featureall<-data.cola.agg$featureall/data.cola.agg$units
+
 head(data.cola.agg,20)
 
 tmp<- aggregate(cbind(units,price,price_deflated,display_minor,display_major,feature_small,feature_medium,feature_large,
                       coupon,displayall,featureall) ~ 
-                MARKET+CHAIN+store_type+L4+L5+VOL_EQ+PACKAGE,
+                  
+                  MARKET+CHAIN+store_type+L4+L5+VOL_EQ+PACKAGE,
                 data = data.cola.agg, mean, na.rm = TRUE)
 
 tmp
@@ -64,22 +108,22 @@ cola$christmas   <- ifelse(cola$week==1165,1,
                                                                                    ifelse(cola$week==1634,1, 
                                                                                           ifelse(cola$week==1686,1,
                                                                                                  0)))))))))))
-
-
-
-
+                                  
+                                  
+                                  
+                                  
 cola$newyearseve<-  ifelse(cola$week==1166,1 ,
-                           ifelse(cola$week==1218,1, 
-                                  ifelse(cola$week==1270,1, 
-                                         ifelse(cola$week==1322,1, 
-                                                ifelse(cola$week==1374,1, 
-                                                       ifelse(cola$week==1426,1, 
-                                                              ifelse(cola$week==1479,1, 
-                                                                     ifelse(cola$week==1531,1, 
-                                                                            ifelse(cola$week==1583,1,
-                                                                                   ifelse(cola$week==1635,1, 
-                                                                                          ifelse(cola$week==1687,1,
-                                                                                                 0)))))))))))
+                    ifelse(cola$week==1218,1, 
+                    ifelse(cola$week==1270,1, 
+                    ifelse(cola$week==1322,1, 
+                    ifelse(cola$week==1374,1, 
+                    ifelse(cola$week==1426,1, 
+                    ifelse(cola$week==1479,1, 
+                    ifelse(cola$week==1531,1, 
+                    ifelse(cola$week==1583,1,
+                    ifelse(cola$week==1635,1, 
+                    ifelse(cola$week==1687,1,
+                                                                                                                                   0)))))))))))
 str(cola)
 sapply(cola[,21:24 ],sum)
 describe(cola)
@@ -113,8 +157,75 @@ summary(model)
 model<-lm(log(units)~-1+L5*yearasfactor+L5:log(price)+L5:display+L5:feature,data=cola.sub)
 summary(model)
 
+
+cola.sub<-subset(cola,cola$VOL_EQ==0.3521)
+cola.sub<-subset(cola.sub,cola.sub$L5=='COKE CLASSIC')
+model<-lm(log(units)~log(price)+display+feature+yearasfactor+thanksgiving+christmas+newyearseve,data=cola.sub)
+summary(model)
+dwt(model)
+cor(cbind(cola.sub$display,cola.sub$feature))
+plot(x=cola.sub$week,y=residuals(model),xlab="Week", ylab="Residuals",panel.last = abline(h=0, lty=2))
+cbind(cola.sub$week==1352,cola.sub$week==1353)
+cola.sub[(1352-1116):(1353-1110),]
+
 cola.sub<-subset(cola,cola$VOL_EQ==0.3521)
 cola.sub<-subset(cola.sub,cola.sub$L5=='DIET COKE')
+model<-lm(log(units)~log(price)+display+feature+yearasfactor+thanksgiving+christmas+newyearseve,data=cola.sub)
+summary(model)
+dwt(model)
+cor(cbind(cola.sub$display,cola.sub$feature))
+
+
+cola.sub<-subset(cola,cola$VOL_EQ==0.3521)
+cola.sub<-subset(cola.sub,cola.sub$L5=='DIET PEPSI')
+model<-lm(log(units)~log(price)+display+feature+yearasfactor+thanksgiving+christmas+newyearseve,data=cola.sub)
+summary(model)
+dwt(model)
+cor(cbind(cola.sub$display,cola.sub$feature))
+
+cola.sub<-subset(cola,cola$VOL_EQ==0.3521)
+cola.sub<-subset(cola.sub,cola.sub$L5=='PEPSI')
+model<-lm(log(units)~log(price)+display+feature+yearasfactor+thanksgiving+christmas+newyearseve,data=cola.sub)
+summary(model)
+dwt(model)
+cor(cbind(cola.sub$display,cola.sub$feature))
+
+
+
+cola.sub<-subset(cola,cola$VOL_EQ==0.75)
+cola.sub<-subset(cola.sub,cola.sub$L5=='COKE CLASSIC')
+model<-lm(log(units)~log(price)+display+feature+yearasfactor+thanksgiving+christmas+newyearseve,data=cola.sub)
+summary(model)
+dwt(model)
+cor(cbind(cola.sub$display,cola.sub$feature))
+
+cola.sub<-subset(cola,cola$VOL_EQ==0.75)
+cola.sub<-subset(cola.sub,cola.sub$L5=='DIET COKE')
+model<-lm(log(units)~log(price)+display+feature+yearasfactor+thanksgiving+christmas+newyearseve,data=cola.sub)
+summary(model)
+dwt(model)
+cor(cbind(cola.sub$display,cola.sub$feature))
+
+
+cola.sub<-subset(cola,cola$VOL_EQ==0.75)
+cola.sub<-subset(cola.sub,cola.sub$L5=='DIET PEPSI')
+model<-lm(log(units)~log(price)+display+feature+yearasfactor+thanksgiving+christmas+newyearseve,data=cola.sub)
+summary(model)
+library(car)
+dwt(model)
+cor(cbind(cola.sub$display,cola.sub$feature))
+
+cola.sub<-subset(cola,cola$VOL_EQ==0.75)
+cola.sub<-subset(cola.sub,cola.sub$L5=='PEPSI')
+model<-lm(log(units)~log(price)+display+feature+yearasfactor+thanksgiving+christmas+newyearseve,data=cola.sub)
+summary(model)
+dwt(model)
+cor(cbind(cola.sub$display,cola.sub$feature))
+
+
+
+cola.sub<-subset(cola,cola$VOL_EQ==0.3521)
+cola.sub<-subset(cola.sub,cola.sub$L5=='COKE CLASSIC')
 model<-lm(log(units)~log(price)+display+feature,data=cola.sub)
 summary(model)
 library(nortest)
@@ -123,22 +234,8 @@ shapiro.test(residuals(model))
 lillie.test(residuals(model)) 
 
 
-#Display residual plot over time
-plot(x=cola.sub$week,y=residuals(model),
-     xlab="Week", ylab="Residuals",
-     panel.last = abline(h=0, lty=2))
-t<-cbind(cola.sub$week, residuals(model))
-t<-as.data.frame(t)
-tt<-t[order(t$V2),]
-tt[1:10,]
-tt[(nrow(tt)-10):nrow(tt),]
-nrow(tt)-10
-model<-lm(log(units)~log(price)+display+feature+yearasfactor+thanksgiving+christmas+newyearseve,data=cola.sub)
-summary(model)
-ad.test(residuals(model)) 
-shapiro.test(residuals(model)) 
-lillie.test(residuals(model)) 
 
+# systematic analysis at the brand and package size level
 
 
 library(car)
@@ -230,11 +327,31 @@ model<-lm(units~price+display+feature+yearasfactor+thanksgiving+christmas+newyea
 summary(model)
 
 
-tmp<- aggregate(cbind(units,price,displayall,featureall,total_rev_carbbev) ~ 
-                  year+L5+VOL_EQ+PACKAGE,
+tmp<- aggregate(cbind(units,price,displayall,featureall) ~ 
+                  year+L4+L5+VOL_EQ+PACKAGE,
                 data = data.cola.agg, mean, na.rm = TRUE)
 
 tmp
+
+
+
+
+
+#Display residual plot over time
+plot(x=cola.sub$week,y=residuals(model),
+     xlab="Week", ylab="Residuals",
+     panel.last = abline(h=0, lty=2))
+t<-cbind(cola.sub$week, residuals(model))
+t<-as.data.frame(t)
+str(t)
+summary(t)
+t[order(t$V2),]
+
+model<-lm(log(units)~log(price)+display+feature:yearasfactor+thanksgiving+christmas+newyearseve,data=cola.sub)
+summary(model)
+ad.test(residuals(model)) 
+shapiro.test(residuals(model)) 
+lillie.test(residuals(model)) 
 
 
 tmp<- subset(cola.sub, cola.sub$year<2008)
@@ -310,8 +427,8 @@ summary(model)
 summary(model.2)
 
 
-
-
+                                                  
+                                                             
 
 install.packages('dplyr')
 library(dplyr)
@@ -329,5 +446,6 @@ head(x)
 str(t)
 length(xx)
 str(xx)
+    )
 
 summary(model.2)
