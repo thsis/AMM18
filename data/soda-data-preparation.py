@@ -22,14 +22,18 @@ outpath = os.path.join("data", "soda.csv")
 
 # Task Nr. 1: Get weather data and translate it to IRI-format.
 # Create converter.
-date_cols = ["Calendar week starting on", "Calendar week ending on"]
-iri_weeks = pd.read_csv(week_path, parse_dates=date_cols, usecols=[0, 1, 2])
+iri_weeks = pd.read_csv(week_path, parse_dates=["start", "end"],
+                        header=0,
+                        usecols=[0, 1, 2],
+                        names=["week", "start", "end"])
 
-iri_translator = {}
+date2IRI = {}
 for i, row in iri_weeks.iterrows():
     dates = pd.date_range(row[1], row[2])
-    week = {d: int(row["IRI Week"]) for d in dates}
-    iri_translator = {**iri_translator, **week}
+    week = {d: int(row["week"]) for d in dates}
+    date2IRI = {**date2IRI, **week}
+
+IRI2date = iri_weeks.set_index("week").start.to_dict()
 
 # Import and concatenate weather data.
 weather = []
@@ -41,7 +45,7 @@ for file in glob(weather_path):
 weather = pd.concat(weather)
 weather_temp = weather.year*10000+weather.month*100+weather.day
 weather["date"] = pd.to_datetime(weather_temp, format='%Y%m%d')
-weather["week"] = weather.date.apply(lambda x: iri_translator.get(x))
+weather["week"] = weather.date.apply(lambda x: date2IRI.get(x))
 weather.dropna(inplace=True)
 weather["week"] = weather.week.astype(int)
 weather.rename(columns={"high": "temperature_high",
@@ -85,27 +89,48 @@ soda["display_all"] = soda["d_1"] | soda["d_2"]
 data = soda.groupby(agg_vars).aggregate({"units": np.sum,
                                          "dollars": np.sum,
                                          "price": np.mean,
+                                         "total_rev_carbbev": np.mean,
                                          "feature_all": np.mean,
-                                         "display_all": np.mean})
+                                         "display_all": np.mean}).reset_index()
 
 # Task 4: Merge weather and sugar data.
 data = data.merge(weather, on=["week"], how='left')
 data = data.merge(sugar, on=["week"], how='left')
 
 # Add seasonal data
+data["start_week"] = data.week.apply(lambda x: IRI2date.get(x))
 seasonals = {"thanksgiving": [1160, 1213, 1265, 1317, 1369, 1421, 1473, 1526,
                               1578, 1630, 1682],
              "christmas": [1165, 1217, 1269, 1321, 1373, 1425, 1478, 1530,
                            1582, 1634, 1686],
              "newyearseve": [1166, 1218, 1270, 1322, 1374, 1426, 1479, 1531,
-                             1583, 1635, 1687]}
+                             1583, 1635, 1687],
+             "superbowl": [1117, 1170, 1217, 1274, 1327, 1379, 1431, 1483,
+                           1535, 1588, 1641],
+             "july4th": [1139, 1191, 1243, 1295, 1347, 1399, 1451, 1503, 1555,
+                         1609, 1662]}
 
-data["thanksgiving"] = data["week"].apply(
-    lambda x: x in seasonals["thanksgiving"]).astype(int)
-data["christmas"] = data["week"].apply(
-    lambda x: x in seasonals["christmas"]).astype(int)
-data["newyearseve"] = data["week"].apply(
-    lambda x: x in seasonals["newyearseve"]).astype(int)
+for key in seasonals.keys():
+    data[key] = data["week"].apply(lambda x: x in seasonals[key]).astype(int)
+
+# Week before St. Patrick's day.
+data["stpatricksday"] = (data.start_week.dt.week == 10).astype(int)
+data["nbafinals"] = data.start_week.dt.week.isin([22, 23]).astype(int)
+
+data["liters"] = data["VOL_EQ"] * data["units"]
+data["price_liter"] = data["price"] / data["VOL_EQ"]
+
+agg = data.groupby(["year", "week", "PACKAGE"])["liters", "dollars"].sum()
+agg.columns = ["sum_liters", "sum_dollars"]
+res = data.merge(agg, left_on=["year", "week", "PACKAGE"],
+                 right_index=True)
+
+data["share"] = res["liters"]/res["sum_liters"] * (
+    res["sum_dollars"]/data["total_rev_carbbev"])
 
 
+# Clean the labels
+data.loc[data["FLAVOR/SCENT"] == "CITRUS DEW", "FLAVOR/SCENT"] = "DEW"
+
+# Save to disk
 data.to_csv(outpath, index=None)
