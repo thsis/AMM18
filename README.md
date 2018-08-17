@@ -23,6 +23,14 @@ Note that this might be different if you are using `IDE`'s like `PyCharm`, `IDLE
 
 ## Weather data
 
+This script scrapes the web for weather data, interfacing with the Dark Sky API
+in order to obtain data about temperature and weather conditions measured at
+Boston Logan International Airport. At the end you will write a `csv-file` to
+the `data` directory of this repository (on your local disk, of course).
+
+
+### How to run this script
+
 1. Get a key from https://darksky.net/dev (don't worry, it's for free).
 2. install the `darksky`-module from github, this seems to be the only version that is not broken:
 ```
@@ -30,13 +38,6 @@ pip install git+https://github.com/zachwill/darksky.git --user
 ```
 3. Save your key in the `key.txt`-file.
 4. run the `weather.py` script.
-
-### What does this script?
-
-This script scrapes the web for weather data, interfacing with the Dark Sky API
-in order to obtain data about temperature and weather conditions measured at
-Boston Logan International Airport. At the end you will write a `csv-file` to
-the `data` directory of this repository (on your local disk, of course).
 
 #### Functions
 ```python
@@ -66,16 +67,13 @@ Key generator that allows to switch between keys that are provided in the
 `secret_key.txt` file.
 * Yields:
     + Key to access Dark Sky API.
+
 <h1 id="models">models</h1>
-
-
-<h1 id="models.amm">models.amm</h1>
-
 
 Models for AMM 18.
 
-Create handy class interface for estimation, calculation of elasticities and
-simulation of price changes.
+Create handy class interface for estimation, calculation of elasticities,
+simulation of price changes and generation of Latex tables.
 
 <h2 id="models.amm.AMM">AMM</h2>
 
@@ -159,6 +157,20 @@ amm.fit(data=data.loc[data.PACKAGE == "BOTTLE"],
         RHS=model,
         share="share",
         agg=["year", "week"])
+```
+<h3 id="models.amm.AMM.simulate">elasticities</h3>
+
+```python
+AMM.elasticities(self)
+```
+Calculate elasticities.
+
+Returns
+* table of estimated elasticities
+
+Examples:
+```python
+amm.elasticities()
 ```
 <h3 id="models.amm.AMM.simulate">simulate</h3>
 
