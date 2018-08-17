@@ -6,6 +6,7 @@ simulation of price changes.
 """
 import os
 import itertools
+import warnings
 import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
@@ -150,13 +151,19 @@ class AMM(object):
             self.sigma = [self.res.params['np.log(G'+str(i)+')'] for i, _ in
                           enumerate(self.nests, 1)]
         # Calculate Elasticities
-        self.elasticities()
+        self.get_elasticities()
         return self
 
-    def elasticities(self):
+    def get_elasticities(self):
+        """
+        Calculate elasticities.
+
+        Returns
+        * table of estimated elasticities
+        """
         self.elasticities = self.__get_elasticities(self.data,
-                                                    "share",
-                                                    "price_liter")
+                                                    self.share,
+                                                    self.price_var)
         if "i" in self.elasticities.columns:
             self.table_elasticities = pd.crosstab(
                 values=self.elasticities.elasticity,
@@ -170,7 +177,7 @@ class AMM(object):
                 columns=self.elasticities.k,
                 aggfunc=np.mean)
 
-        return self
+        return self.table_elasticities
 
     def simulate(self, modifiers={}):
         """
@@ -219,7 +226,7 @@ class AMM(object):
         sim = self.simulation.groupby(self.nests + ["L5"]).mean()
         sim.columns = ["before", "after"]
         sim["change in percent"] = (sim["after"]-sim["before"]) / sim["before"]
-        sim["change in percent"] *= 100
+        sim["change in percent"] = np.round(sim["change in percent"], 2) * 100
 
         self.table_sim = sim.T
         print("\nShares before and after price manipulation\n")
@@ -246,16 +253,28 @@ class AMM(object):
         Parameters:
         * `prefix`: string to prepend filename (defaults to empty string)
         """
-        with open(prefix + "ols_results.tex", "w") as f:
-            f.write(self.res.summary().as_latex())
+        try:
+            assert self.res is not None
+            with open(prefix + "ols_results.tex", "w") as f:
+                f.write(self.res.summary().as_latex())
+        except Exception:
+            warnings.warn("Could not find OLS results.")
 
-        with open(prefix + "elasticities.tex", "w") as f:
-            f.write(self.table_elasticities.to_latex())
+        try:
+            assert self.table_elasticities is not None
+            with open(prefix + "elasticities.tex", "w") as f:
+                f.write(self.table_elasticities.to_latex())
+        except Exception:
+            warnings.warn("Could not find elasticities.")
 
-        with open(prefix + "simulation.tex", "w") as f:
-            caption = self.__parse_modifier()
-            f.write(caption)
-            f.write(self.table_sim.to_latex())
+        try:
+            assert self.table_sim is not None
+            with open(prefix + "simulation.tex", "w") as f:
+                caption = self.__parse_modifier()
+                f.write(caption)
+                f.write(self.table_sim.to_latex())
+        except Exception:
+            warnings.warn("Could not find simulation results.")
 
     def __predict_l1_shares(self, data):
         full = deepcopy(data)
@@ -375,7 +394,8 @@ class AMM(object):
         sg = self.sigma[0]
         sg_ = 1 - self.sigma[0]
         shg_ = 1 - self.sigma[1]
-        a = self.alpha
+        # The notation has changed in the slides (implicitly, of course).
+        a = - self.alpha
         # Create cartesian product of all products.
         cartesian = itertools.product(data[self.nests[0]].unique(),
                                       data[self.nests[0]].unique(),
@@ -383,35 +403,38 @@ class AMM(object):
                                       data.L5.unique())
         dflist = []
         for (h, i, j, k) in cartesian:
-            # Define shorthands.
-            within = pivoted["G2"][i][j]
-            subgroup = pivoted["G1"][i][j]
-            group = pivoted[share][i][j]
-            prices = pivoted[price][i][j]
-            outer = a * prices
-            # Own elasticity.
-            if (h == i) & (j == k):
-                inner_a = 1/shg_ - (1/shg_ - 1/sg_) * within
-                inner_b = (sg/sg_) * within * subgroup + group
-                df = outer * (inner_a - inner_b)
-            # Share group and subgroup.
-            elif (h == i) & self.__in_same_subgroup(j, k):
-                inner_a = (1/sg - 1/sg_) * within
-                inner_b = (sg/sg_) * within * subgroup + group
-                df = - outer * (inner_a + inner_b)
-            # Share group.
-            elif (h == i):
-                df = - outer * (sg/sg_ * within * subgroup)
-            # Different nest.
-            else:
-                df = - outer * group
+            try:
+                # Define shorthands.
+                within = pivoted["G2"][i][j]
+                subgroup = pivoted["G1"][i][j]
+                group = pivoted[share][i][j]
+                prices = pivoted[price][i][j]
+                outer = a * prices
+                # Own elasticity.
+                if (h == i) & (j == k):
+                    inner_a = 1/shg_ - (1/shg_ - 1/sg_) * within
+                    inner_b = (sg/sg_) * within * subgroup + group
+                    df = outer * (inner_a - inner_b)
+                # Share group and subgroup.
+                elif (h == i) & self.__in_same_subgroup(j, k):
+                    inner_a = (1/sg - 1/sg_) * within
+                    inner_b = (sg/sg_) * within * subgroup + group
+                    df = - outer * (inner_a + inner_b)
+                # Share group.
+                elif (h == i):
+                    df = - outer * (sg/sg_ * within * subgroup)
+                # Different nest.
+                else:
+                    df = - outer * group
 
-            df = df.to_frame("elasticity")
-            df["j"] = j
-            df["k"] = k
-            df["i"] = i
-            df["h"] = h
-            dflist.append(df)
+                df = df.to_frame("elasticity")
+                df["j"] = j
+                df["k"] = k
+                df["i"] = i
+                df["h"] = h
+                dflist.append(df)
+            except KeyError:
+                continue
         return pd.concat(dflist)
 
     def __get_elasticities(self, data, share, price):
