@@ -1,0 +1,118 @@
+\documentclass[12pt]{article}
+
+\PassOptionsToPackage{margin=1in}{geometry}
+\usepackage[english]{babel}
+\usepackage{setspace}
+\usepackage{fancyhdr}
+\linespread{1.15}
+
+\usepackage{mathptmx}
+\usepackage[T1]{fontenc}
+
+\setlength{\headheight}{15pt}
+
+\usepackage{titlesec}
+\rhead{Thomas Siskos 580726}
+\lhead{AMM - Final Assignment}
+\pagestyle{fancy}
+\usepackage{pdflscape}
+
+\usepackage{booktabs}
+
+\newcommand{\ela}[2]{\frac{\partial s_{#1}}{\partial p_{#2}} \frac{p_{#2}}{s_{#1}}}
+
+\author{Thomas Siskos}
+\title{AMM18 - Final Assignment}
+\begin{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Data Preparation}
+% Description
+We transform the dataset by aggregating all numerical variables in order to obtain an average representation of one brand's performance at a given week. This step enables us to neglect store-specific information while evaluating estimated elasticities of demand. The resulting error should be small, since for example prices are fairly consistent accross stores. The only real difference lies in each stores marketing activity, for which the information is still encapsulated as the mean of each dummy-variable. These refactorizations of the initial \textit{feature} and \textit{display} variables can still be interpreted as proxies for an average marketing effort.
+
+% Time shifters
+Surprisingly, most of the influential seasonal events which were important in the analysis of the cola dataset do not seem to be meaningful here or, if they are at all significant, have reversed signs. The best example for this is the indicator for the 4th of July which is highly benefitial for cola sales is highly detremental to sales for all non-cola sodas. However, other holidays do seem to play a roll. Sales for soda seem to spike at calendar week 10 in both years which is incidentally the week before the St. Patrick's Day, which is a popular holiday in the Boston area.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Elasticities}
+
+% estimation results
+\begin{table}
+\caption{OLS-Results}
+\label{ols}
+\scriptsize
+\centering
+\input{nested-3L/ols_results.tex}
+\end{table}
+
+% structure
+In order to estimate elasticities we fit a three level nested aggregated logit model. We regress the logarithmic ratio of each observation's market share compared to the share of consumers who chose to not buy any of the products and control for each brand, their respective prices, marketing activities and seasonal events, where we define the market shares as the percentage of realised revenue within a particular week.
+
+We assume the identical decision process for each consumer, in which they initially decide if they want to buy at all, buy a soda brand that does not contain sugar or a regular soda. In the second stage consumers pick the flavor, where they can decide between an energy-drink, ginger ale or a lemonade. At the third and last stage consumers select the brand. The estimation results are summarized in table (\ref{ols}).
+
+% elasticities
+The computation of elasticities of demand for a product $j$ w.r.t. a change in price of product $k$ varies depending on the relation between $j$ and $k$. Product $j$'s own elasticity, if $k=j$, is defined as:
+\small
+\begin{equation}
+\label{own}
+\eta_{jj} = \left[\frac{1}{1-\sigma_{h|g}} - \left(\frac{1}{1-\sigma_{h|g}} - \frac{1}{1-\sigma_g}\right)s_{j|hg}-\left(\frac{\sigma_g}{1-\sigma_g}\right)s_{j|hg}s_{h|g}-s_j\right]\alpha p_j
+\end{equation}
+\normalsize
+
+If $j$ and $k$ belong to the same group and to the same subgroup, the within-group cross elasticity is computed as:
+\small
+\begin{equation}
+\label{sub}
+\eta_{jk} = -\left[\left(\frac{1}{1-\sigma_{h|g}}-\frac{1}{1-\sigma_g}\right)s_{j|hg} + \frac{\sigma_g}{1-\sigma_g}s_{j|hg}s_{h|g} + s_j \right] \alpha p_j
+\end{equation}
+\normalsize
+
+If $j$ and $k$ belong to different subgroups, but do share the same group, the group cross elasticity is determined as:
+\small
+\begin{equation}
+\label{group}
+\eta_{jk} = - \left[ \left(\frac{\sigma_g}{1-\sigma_g}\right) s_{j|hg} s_{h|g} + s_j \right] \alpha p_j
+\end{equation}
+\normalsize
+
+Finally, if $j$ and $k$ do not share any modeled group characteristics the cross elasticity is characterized by:
+\begin{equation}
+\label{other}
+\eta_{jk} = -s_j \alpha p_j
+\end{equation}
+
+Where $s_{j|hg}$ and $s_{h|g}$ represent the share of product $j$ within its subgroup and the share of $j$'s group among all other groups and the outside good respectively. Additionally, $\alpha$, $\sigma_{h|g}$, $\sigma_g$ stand for the estimated coefficients for the price of $j$ and the logarithms of the subgroup and group shares respectively. Further, $s_j$ and $p_j$ symbolize the market level share of product $j$ and its price.
+
+The results are summarized in table (\ref{elasticities}). The own elasticities of all major brands range around roughly -1.2, meaning that, if for example \textit{Sprite Zero} decides to increase its price by 1\%, we would predict a decrease in sales of 1.23\%. Interestingly the own elasticities for the off brand Private Label are about half in magnitude than their counterparts. This may be caused by their low price which, in general, is also about half the price of a comparable brand product. 
+
+\begin{landscape}
+\thispagestyle{empty}
+\begin{table}
+\scriptsize
+\centering
+\caption{Average own and cross price elasticities of demand for all brands}
+\label{elasticities}
+\input{nested-3L/elasticities.tex}
+\end{table}
+\end{landscape}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Simulation}
+
+Based on the previous estimation results we can begin a simulation study, that scrutinizes the effects of a hypothetical 10\% price-off on \textit{Mountain Dew}. It is safe to assume that since \textit{Mountain Dew} has reached its dominant position by making sound and well informed marketing decisions. In that context we would expect a moderate increase in \textit{Mountain Dew}'s market share. We estimate this change to be a 1\% increase in market share.
+
+With the outside good staying virtually unaffected, the increase of \textit{Mountain Dew}'s share has to come mostly out of the \textit{REGULAR} nest, meaning all other soda brands that contain sugar. The \textit{Canada Dry} and \textit{Schweppes} brands face the largest decreases in demand, while the \textit{Private Label} off-brand products are even increasing in share. 
+
+Most of the movement on the market appears to occur within the respective nests, where in general the consumers tend to gravitate towards the cheaper, off-brand products. We can observe seemingly dramatical shifts in table (\ref{sim}). However one needs to keep in mind that a brand like \textit{Mountain Dew} needs to sell more units in order to achieve a 1\%-increase in shares than a small brand, for which this feat is achieved relatively easy.
+
+\begin{table}
+\centering
+\scriptsize
+\caption{Shares before and after a 10\% decrease in price for \textit{Mountain Dew}}
+\label{sim}
+\input{nested-3L/simulation.tex}
+\end{table}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{document}
